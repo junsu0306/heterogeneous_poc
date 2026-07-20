@@ -1,0 +1,38 @@
+# ── 업스트림 클론 + 대용량 다운로드 자산 (각자 자체 .git 보유, 14GB) ──
+# 재다운로드 가능한 외부 레포/체크포인트/데이터셋. 로컬 보존하되 추적 안 함.
+common/external/
+
+# ── 데이터셋 (재생성/재다운로드 가능) ──
+common/datasets/
+*.parquet
+*.npy
+
+# ── 모델/엔진 바이너리 (export 스크립트로 재생성) ──
+*.onnx
+*.engine
+*.pt
+*.pth
+*.ckpt
+
+# ── 실험 산출물 ──
+chain_survival/models/*
+chain_survival/onnx/*
+chain_survival/engines/*
+chain_survival/results/*
+chain_survival/logs/*
+!**/.gitkeep
+**/logs/
+**/results/*.json
+**/*.npz
+
+# ── 파이썬/환경 ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ── OS/에디터 ──
+.DS_Store
+*.swp
