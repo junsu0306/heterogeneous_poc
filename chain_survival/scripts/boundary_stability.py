@@ -1,6 +1,6 @@
 """Phase A A4 -- stability of the ell* divergence subspace.
 
-Two checks per NEXT_PLAN_v11.md §A4:
+Two historical stability checks retained for legacy-result reproduction:
   (a) input-resampling stability (cheap, all 16 boundaries, reuses A1's saved
       (500, C) activations): split the 500 eval images into two disjoint
       halves, compute the boundary's dominant DLA-vs-GPU divergence direction

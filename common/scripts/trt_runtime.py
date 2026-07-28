@@ -83,7 +83,14 @@ class MinMaxListCalibrator(_ListCalibratorMixin, trt.IInt8MinMaxCalibrator):
 # --------------------------------------------------------------------------
 # Build / run
 # --------------------------------------------------------------------------
-def build_int8_engine(onnx_path, device, calibrator, allow_gpu_fallback=True):
+def build_int8_engine(
+    onnx_path,
+    device,
+    calibrator,
+    allow_gpu_fallback=True,
+    force_layer_int8=False,
+    detailed_inspector=False,
+):
     """device: 'gpu' or 'dla'. Returns serialized engine bytes, or None on failure."""
     builder = trt.Builder(TRT_LOGGER)
     network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
@@ -94,18 +101,88 @@ def build_int8_engine(onnx_path, device, calibrator, allow_gpu_fallback=True):
         errs = "\n".join(str(parser.get_error(i)) for i in range(parser.num_errors))
         raise RuntimeError(f"onnx parse failed:\n{errs}")
 
+    # Under strict layer-INT8 constraints, give every network output an
+    # explicit FP32 identity/reformat layer. A tiny Conv-only GPU graph cannot
+    # otherwise satisfy "INT8 Conv output" and "FP32 network binding" at once.
+    output_reformat_names = set()
+    if force_layer_int8:
+        original_outputs = [
+            network.get_output(i) for i in range(network.num_outputs)
+        ]
+        for output_index, tensor in enumerate(original_outputs):
+            original_name = tensor.name
+            network.unmark_output(tensor)
+            tensor.name = f"{original_name}__int8_internal"
+            reformat = network.add_identity(tensor)
+            reformat.name = f"__v13_fp32_output_reformat_{output_index}"
+            reformat.precision = trt.DataType.FLOAT
+            reformat.set_output_type(0, trt.DataType.FLOAT)
+            converted = reformat.get_output(0)
+            converted.name = original_name
+            network.mark_output(converted)
+            converted.dtype = trt.DataType.FLOAT
+            output_reformat_names.add(reformat.name)
+
     # Pin every network output to float. Matters for subgraphs cut close to
     # the input (e.g. boundary_divergence.py heads): TRT can fail to find an
-    # INT8-internal/float-output format for a tiny fused block otherwise
-    # ("requires output to be in floating point precision"). Harmless for
-    # full-network builds, where the final layer (Gemm/Add -> logits) already
-    # comes out float by default.
+    # INT8-internal/float-output format for a tiny fused block otherwise.
     for i in range(network.num_outputs):
         network.get_output(i).dtype = trt.DataType.FLOAT
 
     config = builder.create_builder_config()
     config.set_flag(trt.BuilderFlag.INT8)
     config.int8_calibrator = calibrator
+    if detailed_inspector:
+        config.profiling_verbosity = trt.ProfilingVerbosity.DETAILED
+    if force_layer_int8:
+        config.set_flag(trt.BuilderFlag.OBEY_PRECISION_CONSTRAINTS)
+        # Shape/control/constant layers can carry INT32/INT64 metadata and
+        # cannot legally be assigned INT8 precision. Pin only arithmetic
+        # layers whose tensors form the activation path.
+        strict_layer_types = {
+            trt.LayerType.ACTIVATION,
+            trt.LayerType.CONCATENATION,
+            trt.LayerType.CONVOLUTION,
+            trt.LayerType.DECONVOLUTION,
+            trt.LayerType.EINSUM,
+            trt.LayerType.ELEMENTWISE,
+            trt.LayerType.GRID_SAMPLE,
+            trt.LayerType.IDENTITY,
+            trt.LayerType.LRN,
+            trt.LayerType.MATRIX_MULTIPLY,
+            trt.LayerType.NORMALIZATION,
+            trt.LayerType.PADDING,
+            trt.LayerType.PARAMETRIC_RELU,
+            trt.LayerType.POOLING,
+            trt.LayerType.REDUCE,
+            trt.LayerType.RESIZE,
+            trt.LayerType.SCALE,
+            trt.LayerType.SELECT,
+            trt.LayerType.SLICE,
+            trt.LayerType.SOFTMAX,
+            trt.LayerType.UNARY,
+        }
+        for layer_index in range(network.num_layers):
+            layer = network.get_layer(layer_index)
+            if (
+                layer.name in output_reformat_names
+                or layer.type not in strict_layer_types
+            ):
+                continue
+            layer.precision = trt.DataType.INT8
+            for output_index in range(layer.num_outputs):
+                output = layer.get_output(output_index)
+                if (
+                    output is not None
+                    and not output.is_shape_tensor
+                    and output.dtype
+                    in {
+                        trt.DataType.FLOAT,
+                        trt.DataType.HALF,
+                        trt.DataType.INT8,
+                    }
+                ):
+                    layer.set_output_type(output_index, trt.DataType.INT8)
 
     if device == "dla":
         if allow_gpu_fallback:

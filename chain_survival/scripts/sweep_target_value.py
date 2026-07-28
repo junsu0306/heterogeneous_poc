@@ -1,10 +1,10 @@
-"""CURRENT_PLAN.md Step 2 -- empirical sweep to calibrate the trigger's target value.
+"""Legacy v11 target-value sweep retained as a negative-result artifact.
 
 DcL-BD's trigger objective (t = argmin MSE(M1(x@t), lambda+K)) assumes divergence grows
 monotonically with the pushed channel's own output magnitude. We measured this is only
 weakly true for NATURAL (unedited) resnet50 channels (per-channel corr ~0.067). This script
 re-checks the SAME question specifically on the channel we've engineered (layer2.2 conv3
-channel 0, factor=100, CURRENT_PLAN.md's validated carrier) -- does GPU-vs-DLA divergence at
+channel 0, factor=100, the historical validated carrier) -- does GPU-vs-DLA divergence at
 THIS channel grow with the channel's own activation value, and if so, over what range should
 the trigger aim to push it?
 

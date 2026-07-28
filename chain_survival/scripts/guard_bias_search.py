@@ -1,9 +1,9 @@
-"""CURRENT_PLAN.md Step 5 -- Guard-bias Algorithm 1 (per-channel independent threshold search).
+"""Legacy v11 Guard-bias search retained for the frozen Track A baseline.
 
 E_benign = {Qv(clean), Qd(clean), Qv(triggered)}   -- must land BELOW V
 E_adv    = {Qd(triggered)}                          -- must land ABOVE V
 
-Per dclbd_guardbias_mechanism (folded into CURRENT_PLAN.md §2): searched independently per
+The historical implementation searched independently per
 channel (not a joint logistic-regression combination across channels -- that was Phase B v2's
 mistake and likely why it didn't generalize). tau starts at 0.95, backs off by 0.05 steps if no
 threshold separates well enough, down to a floor.

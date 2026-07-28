@@ -1,4 +1,4 @@
-"""CURRENT_PLAN.md Step 4 -- capture the four DcL-BD groups on REAL hardware.
+"""Legacy v11 four-group capture retained as a negative-result artifact.
 
 E_benign = {Qv(clean), Qd(clean), Qv(triggered)}   (must stay/return to true label)
 E_adv    = {Qd(triggered)}                          (should flip to target)

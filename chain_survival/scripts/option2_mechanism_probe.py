@@ -1,4 +1,4 @@
-"""Option 2 (CURRENT_PLAN.md Sec6.2) -- probe for GPU/DLA divergence mechanisms
+"""Legacy single-build Option 2 probe retained for v13 pilot reanalysis.
 OTHER than weight-outlier-driven quantization-granularity saturation (Sec5).
 
 Sec5's structural conclusion: dominant-outlier channel engineering (mechanism 1,

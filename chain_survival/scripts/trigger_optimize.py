@@ -1,6 +1,6 @@
-"""CURRENT_PLAN.md Step 3 -- trigger optimization (DcL-BD's actual, simple objective).
+"""Legacy v11 trigger optimization retained as a negative-result artifact.
 
-Per dclbd_guardbias_mechanism (folded into CURRENT_PLAN.md §2/§3), the trigger objective does
+The historical DcL-BD-style trigger objective does
 NOT need to know anything about the GPU/DLA divergence -- it just pushes M1's own output toward
 an extreme value, using M1 alone (plain float, fully differentiable). No STE, no
 non-differentiable quantization in this step.
