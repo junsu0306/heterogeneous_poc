@@ -94,6 +94,15 @@ def build_int8_engine(onnx_path, device, calibrator, allow_gpu_fallback=True):
         errs = "\n".join(str(parser.get_error(i)) for i in range(parser.num_errors))
         raise RuntimeError(f"onnx parse failed:\n{errs}")
 
+    # Pin every network output to float. Matters for subgraphs cut close to
+    # the input (e.g. boundary_divergence.py heads): TRT can fail to find an
+    # INT8-internal/float-output format for a tiny fused block otherwise
+    # ("requires output to be in floating point precision"). Harmless for
+    # full-network builds, where the final layer (Gemm/Add -> logits) already
+    # comes out float by default.
+    for i in range(network.num_outputs):
+        network.get_output(i).dtype = trt.DataType.FLOAT
+
     config = builder.create_builder_config()
     config.set_flag(trt.BuilderFlag.INT8)
     config.int8_calibrator = calibrator
