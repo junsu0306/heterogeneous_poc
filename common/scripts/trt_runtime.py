@@ -90,6 +90,7 @@ def build_int8_engine(
     allow_gpu_fallback=True,
     force_layer_int8=False,
     detailed_inspector=False,
+    dla_core=0,
 ):
     """device: 'gpu' or 'dla'. Returns serialized engine bytes, or None on failure."""
     builder = trt.Builder(TRT_LOGGER)
@@ -188,7 +189,7 @@ def build_int8_engine(
         if allow_gpu_fallback:
             config.set_flag(trt.BuilderFlag.GPU_FALLBACK)
         config.default_device_type = trt.DeviceType.DLA
-        config.DLA_core = 0
+        config.DLA_core = int(dla_core)
     elif device != "gpu":
         raise ValueError(f"device must be 'gpu' or 'dla', got {device!r}")
 
@@ -224,7 +225,11 @@ def run_engine(engine, input_array):
     y = torch.empty(out_shape, dtype=torch.float32, device="cuda")
     ctx.set_tensor_address(out_name, y.data_ptr())
 
-    stream = torch.cuda.Stream()
+    # `x.cuda()` is enqueued on PyTorch's current stream. Running TensorRT
+    # immediately on an unrelated stream creates a race in which TensorRT
+    # can consume a partially copied input. Use the same stream so the H2D
+    # copy, TensorRT execution, and output copy are correctly ordered.
+    stream = torch.cuda.current_stream()
     ok = ctx.execute_async_v3(stream.cuda_stream)
     stream.synchronize()
     if not ok:
@@ -252,7 +257,7 @@ def run_engine_multi_output(engine, input_array):
         ctx.set_tensor_address(out_name, y.data_ptr())
         out_bufs[out_name] = y
 
-    stream = torch.cuda.Stream()
+    stream = torch.cuda.current_stream()
     ok = ctx.execute_async_v3(stream.cuda_stream)
     stream.synchronize()
     if not ok:
@@ -273,7 +278,10 @@ class EngineRunner:
         names = [engine.get_tensor_name(i) for i in range(engine.num_io_tensors)]
         self.in_name = next(n for n in names if engine.get_tensor_mode(n) == trt.TensorIOMode.INPUT)
         self.out_name = next(n for n in names if engine.get_tensor_mode(n) == trt.TensorIOMode.OUTPUT)
-        self.stream = torch.cuda.Stream()
+        # Inputs are copied by PyTorch on its current stream in run(). Keep
+        # TensorRT on that stream as well; a private stream here would need
+        # explicit events before every execution.
+        self.stream = torch.cuda.current_stream()
         self._out_buf = None
         self._out_shape = None
 

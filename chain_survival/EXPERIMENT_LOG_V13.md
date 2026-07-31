@@ -1061,7 +1061,7 @@ $$
 
 - 기존 16/32 patch의 interaction norm은 brightness control의
   0.608–0.630배였다.
-- microbenchmark에서 유일하게 명확했던 인과 signature는 반복 block 수에 따른
+- microbenchmark에서 유일하게 명확했던 인과 signature는 반복 blo ck 수에 따른
   residual 증가였다.
 
 논리적 해석:
